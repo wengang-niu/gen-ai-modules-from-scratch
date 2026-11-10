@@ -16,7 +16,7 @@ from sampling import sample_flow, save_samples
 def main():
     # ---------------- 用户配置 ----------------
     # 通过 KaggleHub 下载 CelebA 数据集，返回值为数据集缓存目录。
-    data_root = kagglehub.dataset_download("jessicali9530/celeba-dataset")
+    data_root = kagglehub.dataset_download("jessicali9530/celeba-dataset", output_dir="./data/celeba")
     print("Path to dataset files:", data_root)
 
     save_dir = "./flowmatch_checkpoints"                 # 模型权重 / 采样图的保存目录
@@ -57,26 +57,26 @@ def main():
     global_step = 0    # 全局步数（跨 epoch）
     for epoch in range(num_epochs):
         for z in loader:
-            z = z.to(device)  # 真实图像 x_1，值域 [-1,1]，形状 (B,3,H,W)
-            B = z.shape[0]
+            z = z.to(device)  # 真实图像 x_1：(B,3,H,W)，值域 [-1,1]
+            B = z.shape[0]  # 批次大小 B（取第 0 维）
 
             # 采样初始噪声 x_0 ~ N(0,1)
-            x_0 = torch.randn_like(z)
+            x_0 = torch.randn_like(z)  # 初始噪声：(B,3,H,W)，每个标量独立 ~ N(0,1)
 
             # 采样时间 t ~ Uniform(0,1)
-            t = torch.rand(B, device=device, dtype=torch.float32)
+            t = torch.rand(B, device=device, dtype=torch.float32)  # 时间：(B,)，每张图一个 t ~ U(0,1)
 
             # 构造插值点 x_t = t*z + (1-t)*x_0（Flow Matching 的直线路径）
-            t_broadcast = t.view(B, 1, 1, 1)
-            x_t = t_broadcast * z + (1.0 - t_broadcast) * x_0
+            t_broadcast = t.view(B, 1, 1, 1)  # (B,) → (B,1,1,1)，为广播做准备
+            x_t = t_broadcast * z + (1.0 - t_broadcast) * x_0  # 插值点：(B,3,H,W)
 
             # 真实速度场 u_target = d(x_t)/dt = z - x_0（对直线路径求导）
-            u_target = (z - x_0).detach()
+            u_target = (z - x_0).detach()  # 真实速度场：(B,3,H,W)
 
             optimizer.zero_grad()
 
-            pred = model(x_t, t)  # 预测速度场，t 形状 (B,)
-            loss = mse(pred, u_target)
+            pred = model(x_t, t)  # 预测速度场：(B,3,H,W)，t 输入形状 (B,)
+            loss = mse(pred, u_target)  # pred 与 u_target 形状一致 (B,3,H,W)
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # 梯度裁剪，防止梯度爆炸
