@@ -189,10 +189,10 @@ class EnhancedUNet(nn.Module):
 
         # 时间 t → 正弦编码 → MLP → time_emb_dim 维嵌入
         self.time_mlp = nn.Sequential(
-            SinusoidalPosEmb(base_ch),
-            nn.Linear(base_ch, time_emb_dim),
-            nn.SiLU(),
-            nn.Linear(time_emb_dim, time_emb_dim)
+            SinusoidalPosEmb(base_ch), #  [B, base_ch]
+            nn.Linear(base_ch, time_emb_dim), # [B, time_emb_dim]
+            nn.SiLU(),#  [B, time_emb_dim]
+            nn.Linear(time_emb_dim, time_emb_dim)# [B, time_emb_dim]
         )
 
         # 初始卷积：通道 in_ch → base_ch，空间尺寸不变（kernel_size=3, padding=1）
